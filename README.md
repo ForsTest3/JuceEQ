@@ -9,4 +9,4 @@ Upon playing audio into the equalizer, move the knobs accordingly and observe th
 
 (Still a work in progress)
 
-Heavily referenced by https://www.youtube.com/watch?v=i_Iq4_Kd7Rc&t=4015s
+Heavily referenced by MatKat Music in https://www.youtube.com/watch?v=i_Iq4_Kd7Rc&t=4015s
