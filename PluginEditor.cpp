@@ -168,8 +168,9 @@ void RotarySliderWithLabels::paint(juce::Graphics &g)
         
         auto ang = jmap(pos, 0.f, 1.f, startAng, endAng);
         
-        auto c = center.getPointOnCircumference(radius + getTextHeight() * 0.5f + 1, ang);
+        auto c = center.getPointOnCircumference(radius + getTextHeight() * 0.5f + 1, ang); //change distance
         
+        //location label values for knobs
         Rectangle<float> r;
         auto str = labels[i].label;
         r.setSize(g.getCurrentFont().getStringWidth(str), getTextHeight());
@@ -618,19 +619,20 @@ void ResponseCurveComponent::updateChain()
                     chainSettings.highCutSlope);
 }
 
+//size of spectrum
 juce::Rectangle<int> ResponseCurveComponent::getRenderArea()
 {
     auto bounds = getLocalBounds();
     
-    bounds.removeFromTop(12);
-    bounds.removeFromBottom(2);
+    bounds.removeFromTop(15);
+    bounds.removeFromBottom(0);
     bounds.removeFromLeft(20);
     bounds.removeFromRight(20);
     
     return bounds;
 }
 
-
+//top right analyze rectangle
 juce::Rectangle<int> ResponseCurveComponent::getAnalysisArea()
 {
     auto bounds = getRenderArea();
@@ -672,7 +674,7 @@ analyzerEnabledButtonAttachment(audioProcessor.apvts, "Analyzer Enabled", analyz
     peakGainSlider.labels.add({0.f, "-24dB"});
     peakGainSlider.labels.add({1.f, "+24dB"});
     
-    peakQualitySlider.labels.add({0.f, "0.1"});
+    peakQualitySlider.labels.add({0.f, "0.1"}); //labels
     peakQualitySlider.labels.add({1.f, "10.0"});
     
     lowCutFreqSlider.labels.add({0.f, "20Hz"});
@@ -743,7 +745,7 @@ analyzerEnabledButtonAttachment(audioProcessor.apvts, "Analyzer Enabled", analyz
         }
     };
     
-    setSize (480, 500);
+    setSize (600, 600);//size of GUI screen
 }
 
 SimpleEQAudioProcessorEditor::~SimpleEQAudioProcessorEditor()
@@ -817,12 +819,17 @@ void SimpleEQAudioProcessorEditor::paint(juce::Graphics &g)
 	//bottom knob descriptions
     g.setColour(Colours::cyan);
     g.setFont(desc);
-    g.drawFittedText("LowCut", lowCutSlopeSlider.getBounds(), juce::Justification::centred, 1);
-    g.drawFittedText("Peak", peakQualitySlider.getBounds(), juce::Justification::centred, 1);
-    g.drawFittedText("HighCut", highCutSlopeSlider.getBounds(), juce::Justification::centred, 1);
+
+    g.drawFittedText("LowCut", lowCutSlopeSlider.getBounds().translated(0, -50), 
+        juce::Justification::centred, 1);
+    //g.drawFittedText("Peak", betweenLowAndPeak, juce::Justification::centred, 1);
+    g.drawFittedText("HighCut", highCutSlopeSlider.getBounds().translated(0,-40), 
+        juce::Justification::centred, 1);
     //g.drawFittedText("LowOrder", lowCutSlopeSlider.getBounds(), juce::Justification::centredBottom, 1);
-    g.drawFittedText("Q factor", peakQualitySlider.getBounds(), juce::Justification::centredBottom, 1);
-    //g.drawFittedText("HighOrder", highCutSlopeSlider.getBounds(), juce::Justification::centredBottom, 1);
+    g.drawFittedText("Q factor",
+        peakQualitySlider.getBounds().translated(0, 10),  // Move down 10 pixels
+        juce::Justification::centredBottom, 1);
+    //g.drawFittedText("HighOrder", betweenPeakAndHigh, juce::Justification::centredBottom, 1);
     
     //really just for documentation, not actually necessary, historical evidence
     auto buildDate = Time::getCompilationDate().toString(true, false);
@@ -846,7 +853,7 @@ void SimpleEQAudioProcessorEditor::resized()
     
     analyzerEnabledButton.setBounds(analyzerEnabledArea);
     
-    bounds.removeFromTop(5);
+    bounds.removeFromTop(10);
     
     float hRatio = 25.f / 100.f; //JUCE_LIVE_CONSTANT(25) / 100.f;
     auto responseArea = bounds.removeFromTop(bounds.getHeight() * hRatio); 
@@ -855,21 +862,21 @@ void SimpleEQAudioProcessorEditor::resized()
     
     //bounds.removeFromTop(5);
     
-    auto lowCutArea = bounds.removeFromLeft(bounds.getWidth() * 0.15);
+    auto lowCutArea = bounds.removeFromLeft(bounds.getWidth() * 0.15); //slight ratios
     auto highCutArea = bounds.removeFromRight(bounds.getWidth() * 0.20); //size of bottom two ratios
     
     lowcutBypassButton.setBounds(lowCutArea.removeFromTop(25)); //bottom button 
     lowCutFreqSlider.setBounds(lowCutArea.removeFromTop(lowCutArea.getHeight() * 0.25)); //size of top lowcut
-    lowCutSlopeSlider.setBounds(lowCutArea);
+    lowCutSlopeSlider.setBounds(lowCutArea);//size of knob slider
     
     highcutBypassButton.setBounds(highCutArea.removeFromTop(25)); //bottom button
     highCutFreqSlider.setBounds(highCutArea.removeFromTop(highCutArea.getHeight() * 0.25)); //size of top highcut
-    highCutSlopeSlider.setBounds(highCutArea);
+    highCutSlopeSlider.setBounds(highCutArea);//size of knob slider
     
-    peakBypassButton.setBounds(bounds.removeFromTop(15)); //power peak
-    peakFreqSlider.setBounds(bounds.removeFromTop(bounds.getHeight() * 0.33)); //
-    peakGainSlider.setBounds(bounds.removeFromTop(bounds.getHeight() * 0.5)); //percentage ratio
-    peakQualitySlider.setBounds(bounds);
+    peakBypassButton.setBounds(bounds.removeFromTop(25)); //power peak
+    peakFreqSlider.setBounds(bounds.removeFromTop(bounds.getHeight() * 0.25)); //
+    peakGainSlider.setBounds(bounds.removeFromTop(bounds.getHeight() * 0.33)); //percentage ratio
+    peakQualitySlider.setBounds(bounds.removeFromTop(bounds.getHeight() * 0.5)); //size of knob slider
 }
 
 //return as vectors
