@@ -2,7 +2,9 @@
   ==============================================================================
 
     This file contains the basic framework code for a JUCE plugin editor.
-	Allows you to edit the GUI of the audio plugin.
+
+	Allows you to edit the GUI of the audio plugin. Acts as the bridge between
+	audio processing and visual representation.
   ==============================================================================
 */
 

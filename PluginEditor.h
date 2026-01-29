@@ -3,6 +3,8 @@
 
     This file contains the basic framework code for a JUCE plugin editor.
 
+	This file contains the code that depicts
+    algorithm applications for analysis of audio data and rendering
   ==============================================================================
 */
 
@@ -18,11 +20,12 @@ enum FFTOrder
     order8192 = 13
 };
 
+//fast fourier transform data generator
 template<typename BlockType>
 struct FFTDataGenerator
 {
     /**
-     produces the FFT data from an audio buffer.
+     produces the FFT data from an audio buffer. converts time domain to frequency domain.
      */
     void produceFFTDataForRendering(const juce::AudioBuffer<float>& audioData, const float negativeInfinity)
     {
@@ -30,12 +33,13 @@ struct FFTDataGenerator
         
         fftData.assign(fftData.size(), 0);
         auto* readIndex = audioData.getReadPointer(0);
-        std::copy(readIndex, readIndex + fftSize, fftData.begin());
+        std::copy(readIndex, readIndex + fftSize, fftData.begin()); //copies data for fft analysis
         
-        // first apply a windowing function to our data
+        // first apply a windowing function to our data, reduces artifacts like distortion and 
+        //smoothes edges of audio intake
         window->multiplyWithWindowingTable (fftData.data(), fftSize);       // [1]
         
-        // then render our FFT data..
+        // then render our FFT data. this performs the FFT transform
         forwardFFT->performFrequencyOnlyForwardTransform (fftData.data());  // [2]
         
         int numBins = (int)fftSize / 2;
@@ -62,7 +66,7 @@ struct FFTDataGenerator
             fftData[i] = juce::Decibels::gainToDecibels(fftData[i], negativeInfinity);
         }
         
-        fftDataFifo.push(fftData);
+		fftDataFifo.push(fftData); //put the data onto the fifo for rendering
     }
     
     void changeOrder(FFTOrder newOrder)
@@ -96,6 +100,7 @@ private:
     Fifo<BlockType> fftDataFifo;
 };
 
+//converts FFT data into the actual curve on screen
 template<typename PathType>
 struct AnalyzerPathGenerator
 {
@@ -108,6 +113,7 @@ struct AnalyzerPathGenerator
                       float binWidth,
                       float negativeInfinity)
     {
+        //draw area
         auto top = fftBounds.getY();
         auto bottom = fftBounds.getHeight();
         auto width = fftBounds.getWidth();
@@ -134,6 +140,7 @@ struct AnalyzerPathGenerator
 
         const int pathResolution = 2; //you can draw line-to's every 'pathResolution' pixels.
 
+        //draws the curve line
         for( int binNum = 1; binNum < numBins; binNum += pathResolution )
         {
             y = map(renderData[binNum]);
@@ -149,6 +156,7 @@ struct AnalyzerPathGenerator
             }
         }
 
+        //stores it
         pathFifo.push(p);
     }
 
@@ -165,6 +173,7 @@ private:
     Fifo<PathType> pathFifo;
 };
 
+//general declarations
 struct LookAndFeel : juce::LookAndFeel_V4
 {
     void drawRotarySlider (juce::Graphics&,
@@ -180,6 +189,7 @@ struct LookAndFeel : juce::LookAndFeel_V4
                            bool shouldDrawButtonAsDown) override;
 };
 
+//custom rotation knob, like a slider
 struct RotarySliderWithLabels : juce::Slider
 {
     RotarySliderWithLabels(juce::RangedAudioParameter& rap, const juce::String& unitSuffix) :
@@ -215,6 +225,7 @@ private:
     juce::String suffix;
 };
 
+//path for raw audio to be taken in, and converts it to be seen as the spectral frequencies
 struct PathProducer
 {
     PathProducer(SingleChannelSampleFifo<SimpleEQAudioProcessor::BlockType>& scsf) :
@@ -237,6 +248,7 @@ private:
     juce::Path leftChannelFFTPath;
 };
 
+//declares and creates visual of spectrum analyzer and response curve
 struct ResponseCurveComponent: juce::Component,
 juce::AudioProcessorParameter::Listener,
 juce::Timer
@@ -285,9 +297,12 @@ private:
     
     PathProducer leftPathProducer, rightPathProducer;
 };
+
 //==============================================================================
+//power on/off button
 struct PowerButton : juce::ToggleButton { };
 
+//whether the button can toggle on or off
 struct AnalyzerButton : juce::ToggleButton
 {
     void resized() override
@@ -312,6 +327,7 @@ struct AnalyzerButton : juce::ToggleButton
     juce::Path randomPath;
 };
 /**
+* header, defines the components the editor has and what they can do
 */
 class SimpleEQAudioProcessorEditor  : public juce::AudioProcessorEditor
 {

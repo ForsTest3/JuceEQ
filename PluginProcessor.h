@@ -3,6 +3,7 @@
 
     This file contains the basic framework code for a JUCE plugin processor.
 
+	Main function processes of the GUI and audio happens here.
   ==============================================================================
 */
 
@@ -12,8 +13,11 @@
 
 #include <array>
 template<typename T>
+
+//first in first out, allows for audio to be processed to be displayed on GUI
 struct Fifo
 {
+	//prepare buffers to hold audio data, without buffers cannot see info on GUI (too fast)
     void prepare(int numChannels, int numSamples)
     {
         static_assert( std::is_same_v<T, juce::AudioBuffer<float>>,
@@ -29,6 +33,7 @@ struct Fifo
         }
     }
     
+	//prepare buffers to hold vectors of floats
     void prepare(size_t numElements)
     {
         static_assert( std::is_same_v<T, std::vector<float>>,
@@ -40,6 +45,7 @@ struct Fifo
         }
     }
     
+	//boolean checks if stack is full or not, if not push data onto stack
     bool push(const T& t)
     {
         auto write = fifo.write(1);
@@ -52,6 +58,7 @@ struct Fifo
         return false;
     }
     
+	//boolean checks if stack is empty or not, if not pull data from stack
     bool pull(T& t)
     {
         auto read = fifo.read(1);
@@ -64,22 +71,29 @@ struct Fifo
         return false;
     }
     
+	//ONLY CHECKS the number of available buffers for reading
     int getNumAvailableForReading() const
     {
         return fifo.getNumReady();
     }
+
+	//gets the number of available buffers for writing
+	//private so user doesn't affect fifo integrity, prevents errors
 private:
-    static constexpr int Capacity = 30;
+    static constexpr int Capacity = 30; //don't want too many or too little, can test manually
     std::array<T, Capacity> buffers;
     juce::AbstractFifo fifo {Capacity};
 };
 
+//left and right channels stereo audio
 enum Channel
 {
     Right, //effectively 0
     Left //effectively 1
 };
 
+//collects samples for a single channel and pushes them to a fifo when buffer is full
+//then passes to FFT analyzer
 template<typename BlockType>
 struct SingleChannelSampleFifo
 {
@@ -88,6 +102,7 @@ struct SingleChannelSampleFifo
         prepared.set(false);
     }
     
+	//for the samples, and push onto fifo when ready
     void update(const BlockType& buffer)
     {
         jassert(prepared.get());
@@ -100,6 +115,7 @@ struct SingleChannelSampleFifo
         }
     }
 
+	//prepare the fifo and buffer to fill
     void prepare(int bufferSize)
     {
         prepared.set(false);
@@ -120,6 +136,8 @@ struct SingleChannelSampleFifo
     int getSize() const { return size.get(); }
     //==============================================================================
     bool getAudioBuffer(BlockType& buf) { return audioBufferFifo.pull(buf); }
+
+	//private methods and variables
 private:
     Channel channelToUse;
     int fifoIndex = 0;
@@ -128,6 +146,7 @@ private:
     juce::Atomic<bool> prepared = false;
     juce::Atomic<int> size = 0;
     
+	//pushes samples into buffer, when full pushes buffer into fifo
     void pushNextSampleIntoFifo(float sample)
     {
         if (fifoIndex == bufferToFill.getNumSamples())
@@ -144,14 +163,18 @@ private:
     }
 };
 
+//steepness of filter slope for the EQ
+//buttersworth 2 filters, each 12db per octave
+//logarithmic scale
 enum Slope
 {
-    Slope_12,
-    Slope_24,
+    Slope_12, //2 poles
+	Slope_24, //2 db per octave
     Slope_36,
     Slope_48
 };
 
+//holds all default settings for the EQ chain
 struct ChainSettings
 {
     float peakFreq { 0 }, peakGainInDecibels{ 0 }, peakQuality {1.f};
@@ -162,6 +185,8 @@ struct ChainSettings
     bool lowCutBypassed { false }, peakBypassed { false }, highCutBypassed { false };
 };
 
+//how filters are arranged and ordered together
+//put together such that they dont interfere with each other
 ChainSettings getChainSettings(juce::AudioProcessorValueTreeState& apvts);
 
 using Filter = juce::dsp::IIR::Filter<float>;
@@ -170,6 +195,7 @@ using CutFilter = juce::dsp::ProcessorChain<Filter, Filter, Filter, Filter>;
 
 using MonoChain = juce::dsp::ProcessorChain<CutFilter, Filter, CutFilter>;
 
+//we want these main 3
 enum ChainPositions
 {
     LowCut,
@@ -177,11 +203,13 @@ enum ChainPositions
     HighCut
 };
 
+//update the filter coefficients 
 using Coefficients = Filter::CoefficientsPtr;
 void updateCoefficients(Coefficients& old, const Coefficients& replacements);
 
 Coefficients makePeakFilter(const ChainSettings& chainSettings, double sampleRate);
 
+//
 template<int Index, typename ChainType, typename CoefficientType>
 void update(ChainType& chain, const CoefficientType& coefficients)
 {
@@ -189,6 +217,7 @@ void update(ChainType& chain, const CoefficientType& coefficients)
     chain.template setBypassed<Index>(false);
 }
 
+//updates the slope
 template<typename ChainType, typename CoefficientType>
 void updateCutFilter(ChainType& chain,
                      const CoefficientType& coefficients,
@@ -220,6 +249,7 @@ void updateCutFilter(ChainType& chain,
     }
 }
 
+//general low cut filter design
 inline auto makeLowCutFilter(const ChainSettings& chainSettings, double sampleRate )
 {
     return juce::dsp::FilterDesign<float>::designIIRHighpassHighOrderButterworthMethod(chainSettings.lowCutFreq,
@@ -227,6 +257,7 @@ inline auto makeLowCutFilter(const ChainSettings& chainSettings, double sampleRa
                                                                                        2 * (chainSettings.lowCutSlope + 1));
 }
 
+//general high cut filter design
 inline auto makeHighCutFilter(const ChainSettings& chainSettings, double sampleRate )
 {
     return juce::dsp::FilterDesign<float>::designIIRLowpassHighOrderButterworthMethod(chainSettings.highCutFreq,
@@ -236,6 +267,7 @@ inline auto makeHighCutFilter(const ChainSettings& chainSettings, double sampleR
 //==============================================================================
 /**
 */
+//sets acticity action for the audio processor, play, stop, etc
 class SimpleEQAudioProcessor  : public juce::AudioProcessor
 {
 public:
@@ -280,20 +312,18 @@ public:
     juce::AudioProcessorValueTreeState apvts {*this, nullptr, "Parameters", createParameterLayout()};
     
     using BlockType = juce::AudioBuffer<float>;
+	//left and right channel fifos
     SingleChannelSampleFifo<BlockType> leftChannelFifo { Channel::Left };
     SingleChannelSampleFifo<BlockType> rightChannelFifo { Channel::Right };
 private:
     MonoChain leftChain, rightChain;
     
     void updatePeakFilter(const ChainSettings& chainSettings);
-
-    
-    
     
     void updateLowCutFilters(const ChainSettings& chainSettings);
     void updateHighCutFilters(const ChainSettings& chainSettings);
     
-    void updateFilters();
+	void updateFilters();// actively updates all filters when called
     
     juce::dsp::Oscillator<float> osc;
     //==============================================================================

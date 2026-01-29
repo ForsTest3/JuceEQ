@@ -3,12 +3,15 @@
 
     This file contains the basic framework code for a JUCE plugin processor.
 
+    Implementation of the function processes and the main carrier of
+    the audio filter functionality
   ==============================================================================
 */
 
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+//configures IO routing for plugin
 //==============================================================================
 SimpleEQAudioProcessor::SimpleEQAudioProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
@@ -28,6 +31,7 @@ SimpleEQAudioProcessor::~SimpleEQAudioProcessor()
 {
 }
 
+//simple methods
 //==============================================================================
 const juce::String SimpleEQAudioProcessor::getName() const
 {
@@ -61,6 +65,7 @@ bool SimpleEQAudioProcessor::isMidiEffect() const
    #endif
 }
 
+//set as 0 so no lag for output, instantaneous
 double SimpleEQAudioProcessor::getTailLengthSeconds() const
 {
     return 0.0;
@@ -90,6 +95,7 @@ void SimpleEQAudioProcessor::changeProgramName (int index, const juce::String& n
 {
 }
 
+//play action, initialize and preparing to play
 //==============================================================================
 void SimpleEQAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
@@ -97,7 +103,7 @@ void SimpleEQAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlo
     // initialisation that you need..
     
     juce::dsp::ProcessSpec spec;
-    
+    //rates and specs
     spec.maximumBlockSize = samplesPerBlock;
     
     spec.numChannels = 1;
@@ -106,7 +112,8 @@ void SimpleEQAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlo
     
     leftChain.prepare(spec);
     rightChain.prepare(spec);
-    
+
+    //set with respective spec
     updateFilters();
     
     leftChannelFifo.prepare(samplesPerBlock);
@@ -125,6 +132,7 @@ void SimpleEQAudioProcessor::releaseResources()
     // spare memory, etc.
 }
 
+//ideal setups
 #ifndef JucePlugin_PreferredChannelConfigurations
 bool SimpleEQAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
@@ -151,6 +159,7 @@ bool SimpleEQAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts)
 }
 #endif
 
+//actual audio processing happens here
 void SimpleEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
     juce::ScopedNoDenormals noDenormals;
@@ -308,6 +317,7 @@ void SimpleEQAudioProcessor::updateFilters()
     updateHighCutFilters(chainSettings);
 }
 
+//behavior and ranges of parameters
 juce::AudioProcessorValueTreeState::ParameterLayout SimpleEQAudioProcessor::createParameterLayout()
 {
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
@@ -336,7 +346,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout SimpleEQAudioProcessor::crea
                                                            "Peak Quality",
                                                            juce::NormalisableRange<float>(0.1f, 10.f, 0.05f, 1.f),
                                                            1.f));
-    
+
+	//20khz also works, but some plugins also support 22.5khz
+
     juce::StringArray stringArray;
     for( int i = 0; i < 4; ++i )
     {
